@@ -39,7 +39,7 @@ for (let c = 0; c < brickColumnCount; c++) {
 let score = 0;
 let lives = 1;
 let isGameOver = false;
-
+let isVictory = false;
 // Initialize high score from localStorage
 let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
 
@@ -67,7 +67,20 @@ function keyUpHandler(e) {
         leftPressed = false;
     }
 }
-
+function checkVictory() {
+    if (score === brickRowCount * brickColumnCount) {
+        updateHighScore(); 
+        isVictory = true; 
+    }
+}
+function drawVictory() {
+    ctx.font = '48px Arial'; 
+    ctx.fillStyle = 'green'; 
+    ctx.textAlign = 'center'; 
+    ctx.fillText('VICTORY!', canvas.width / 2, canvas.height / 2); 
+    ctx.font = '24px Arial'; 
+    ctx.fillText('Press F5 to Restart', canvas.width / 2, canvas.height / 2 + 50);
+}
 // Draw paddle
 function drawPaddle() {
     let previousPaddleX = paddleX;
@@ -147,15 +160,7 @@ function updateHighScore() {
     }
 }
 
-// Adjust ball speed based on remaining bricks
-function adjustBallSpeed() {
-    const totalBricks = brickRowCount * brickColumnCount;
-    const remainingBricks = bricks.flat().filter(b => b.status === 1).length;
 
-    const speedMultiplier = 1 + (totalBricks - remainingBricks) / totalBricks * 0.5;
-    ballSpeedX = Math.sign(ballSpeedX) * (2 * speedMultiplier);
-    ballSpeedY = Math.sign(ballSpeedY) * (2 * speedMultiplier);
-}
 
 // Detect ball collision with bricks
 function collisionDetection() {
@@ -184,13 +189,10 @@ function collisionDetection() {
                     score++;
                     brickSound.play();
 
-                    adjustBallSpeed();
+                    checkVictory();
 
-                    if (score === brickRowCount * brickColumnCount) {
-                        updateHighScore();
-                        alert('YOU WIN! High Score: ' + highScore);
-                        document.location.reload();
-                    }
+
+                   
                 }
             }
         }
@@ -204,7 +206,7 @@ function detectPaddleCollision() {
 
         // Reverse horizontal direction if paddle is moving opposite to the ball
         if ((paddleSpeed > 0 && ballSpeedX < 0) || (paddleSpeed < 0 && ballSpeedX > 0)) {
-            ballSpeedX = -ballSpeedX;
+            ballSpeedX = -ballSpeedX*0.99;
         }
 
         paddleSound.play(); // Play paddle collision sound
@@ -212,16 +214,16 @@ function detectPaddleCollision() {
 }
 
 function gameOver() {
-    gameOverSound.play(); // Pusti zvuk za kraj igre
-    updateHighScore(); // Ažuriraj rezultat
-    isGameOver = true; // Postavi stanje igre na "kraj"
+    gameOverSound.play(); 
+    updateHighScore(); 
+    isGameOver = true; 
 }
 function drawGameOver() {
-    ctx.font = '48px Arial'; // Font i veličina teksta
-    ctx.fillStyle = 'red'; // Boja teksta
-    ctx.textAlign = 'center'; // Poravnanje teksta
-    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2); // Nacrtaj tekst
-    ctx.font = '24px Arial'; // Manji font za dodatni tekst
+    ctx.font = '48px Arial'; 
+    ctx.fillStyle = 'red'; 
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+    ctx.font = '24px Arial';
     ctx.fillText('Press F5 to Restart', canvas.width / 2, canvas.height / 2 + 50);
 }
 // Draw everything
@@ -246,6 +248,10 @@ function draw() {
     if (isGameOver) {
         drawGameOver();
         return; 
+    }
+    if (isVictory) {
+        drawVictory();
+        return;
     }
 
 
@@ -285,7 +291,7 @@ function resetBall() {
     }
 
     // Set vertical speed to move upward
-    ballSpeedY = -2;
+    ballSpeedY = -4;
 }
 resetBall();
 draw();

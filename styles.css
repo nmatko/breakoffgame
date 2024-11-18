@@ -1,0 +1,15 @@
+/* General body styling */
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: black;
+    height: 100vh;
+    color: white;
+}
+
+/* Canvas styling */
+canvas {
+    border: 1px solid white;
+}

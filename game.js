@@ -38,6 +38,7 @@ for (let c = 0; c < brickColumnCount; c++) {
 
 let score = 0;
 let lives = 1;
+let isGameOver = false;
 
 // Initialize high score from localStorage
 let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
@@ -83,7 +84,17 @@ function drawPaddle() {
     ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
     ctx.fillStyle = '#fff';
     ctx.fill();
+    ctx.save(); 
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; 
+    ctx.shadowBlur = 10; 
+    ctx.shadowOffsetX = 0; 
+    ctx.shadowOffsetY = 4; 
+    ctx.beginPath();
+    ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+    ctx.fillStyle = '#fff'; 
+    ctx.fill();
     ctx.closePath();
+    ctx.restore(); 
 }
 
 // Draw ball
@@ -93,6 +104,7 @@ function drawBall() {
     ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.closePath();
+
 }
 
 // Draw bricks
@@ -100,15 +112,21 @@ function drawBricks() {
     for (let c = 0; c < brickColumnCount; c++) {
         for (let r = 0; r < brickRowCount; r++) {
             if (bricks[c][r].status === 1) {
+                ctx.save(); 
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; 
+                ctx.shadowBlur = 5; 
+                ctx.shadowOffsetX = 2; 
+                ctx.shadowOffsetY = 2; 
                 let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
                 let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
                 bricks[c][r].x = brickX;
                 bricks[c][r].y = brickY;
                 ctx.beginPath();
                 ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                ctx.fillStyle = '#fff';
+                ctx.fillStyle = '#fff'; 
                 ctx.fill();
                 ctx.closePath();
+                ctx.restore(); 
             }
         }
     }
@@ -193,14 +211,28 @@ function detectPaddleCollision() {
     }
 }
 
-
+function gameOver() {
+    gameOverSound.play(); // Pusti zvuk za kraj igre
+    updateHighScore(); // Ažuriraj rezultat
+    isGameOver = true; // Postavi stanje igre na "kraj"
+}
+function drawGameOver() {
+    ctx.font = '48px Arial'; // Font i veličina teksta
+    ctx.fillStyle = 'red'; // Boja teksta
+    ctx.textAlign = 'center'; // Poravnanje teksta
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2); // Nacrtaj tekst
+    ctx.font = '24px Arial'; // Manji font za dodatni tekst
+    ctx.fillText('Press F5 to Restart', canvas.width / 2, canvas.height / 2 + 50);
+}
 // Draw everything
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawBricks();
     drawBall();
+   
     drawPaddle();
     drawHighScore();
+    
     ctx.font = '16px Arial';
     ctx.fillStyle = '#fff';
     ctx.fillText('Score: ' + score, 8, 20);
@@ -208,6 +240,14 @@ function draw() {
 
     collisionDetection();
     detectPaddleCollision();
+   
+
+
+    if (isGameOver) {
+        drawGameOver();
+        return; 
+    }
+
 
     if (ballX + ballSpeedX > canvas.width - ballRadius || ballX + ballSpeedX < ballRadius) {
         ballSpeedX = -ballSpeedX;
@@ -217,10 +257,7 @@ function draw() {
     } else if (ballY + ballSpeedY > canvas.height - ballRadius) {
         lives--;
         if (!lives) {
-            gameOverSound.play();
-            updateHighScore();
-            alert('GAME OVER! Your Score: ' + score + ' | High Score: ' + highScore);
-            document.location.reload();
+            gameOver()
         } else {
             resetBall();
             paddleX = (canvas.width - paddleWidth) / 2;
@@ -235,10 +272,20 @@ function draw() {
 
 // Reset ball to starting position
 function resetBall() {
+    // Reset ball to the center
     ballX = canvas.width / 2;
     ballY = canvas.height - 30;
-    ballSpeedX = (Math.random() * 4 - 2);
+
+    // Randomize initial horizontal speed between -2 and 2
+    ballSpeedX = Math.random() * 4 - 2; // Random value in range [-2, 2]
+
+    // Ensure horizontal speed is not zero (to avoid straight vertical trajectory)
+    if (Math.abs(ballSpeedX) < 0.5) {
+        ballSpeedX = ballSpeedX < 0 ? -1 : 1; // Set to minimum speed
+    }
+
+    // Set vertical speed to move upward
     ballSpeedY = -2;
 }
-
+resetBall();
 draw();

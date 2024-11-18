@@ -9,6 +9,7 @@ canvas.height = 600;
 let paddleHeight = 15;
 let paddleWidth = 100;
 let paddleX = (canvas.width - paddleWidth) / 2;
+let paddleSpeed = 0; // Track paddle movement speed
 
 let ballRadius = 10;
 let ballX = canvas.width / 2;
@@ -36,15 +37,15 @@ for (let c = 0; c < brickColumnCount; c++) {
 }
 
 let score = 0;
-let lives = 3;
+let lives = 1;
 
-// High Score from localStorage
-let highScore = localStorage.getItem('highScore') || 0;
+// Initialize high score from localStorage
+let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
 
 // Sound effects
-const paddleSound = new Audio('https://www.soundjay.com/button/beep-07.wav');
-const brickSound = new Audio('https://www.soundjay.com/button/beep-09.wav');
-const gameOverSound = new Audio('https://www.soundjay.com/misc/fail-trombone-02.wav');
+const paddleSound = new Audio('./sounds/paddle.wav');
+const brickSound = new Audio('./sounds/brick.wav');
+const gameOverSound = new Audio('./sounds/game-over.wav');
 
 // Key handlers
 document.addEventListener('keydown', keyDownHandler);
@@ -68,6 +69,16 @@ function keyUpHandler(e) {
 
 // Draw paddle
 function drawPaddle() {
+    let previousPaddleX = paddleX;
+
+    if (rightPressed && paddleX < canvas.width - paddleWidth) {
+        paddleX += 7;
+    } else if (leftPressed && paddleX > 0) {
+        paddleX -= 7;
+    }
+
+    paddleSpeed = paddleX - previousPaddleX; // Calculate paddle speed
+
     ctx.beginPath();
     ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
     ctx.fillStyle = '#fff';
@@ -103,32 +114,62 @@ function drawBricks() {
     }
 }
 
-// Display high score on canvas
+// Display high score
 function drawHighScore() {
     ctx.font = '16px Arial';
     ctx.fillStyle = '#fff';
     ctx.fillText('High Score: ' + highScore, canvas.width / 2 - 50, 20);
 }
 
-// Collision detection
+// Update high score
+function updateHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+    }
+}
+
+// Adjust ball speed based on remaining bricks
+function adjustBallSpeed() {
+    const totalBricks = brickRowCount * brickColumnCount;
+    const remainingBricks = bricks.flat().filter(b => b.status === 1).length;
+
+    const speedMultiplier = 1 + (totalBricks - remainingBricks) / totalBricks * 0.5;
+    ballSpeedX = Math.sign(ballSpeedX) * (2 * speedMultiplier);
+    ballSpeedY = Math.sign(ballSpeedY) * (2 * speedMultiplier);
+}
+
+// Detect ball collision with bricks
 function collisionDetection() {
     for (let c = 0; c < brickColumnCount; c++) {
         for (let r = 0; r < brickRowCount; r++) {
             let b = bricks[c][r];
             if (b.status === 1) {
-                if (ballX > b.x && ballX < b.x + brickWidth &&
-                    ballY > b.y && ballY < b.y + brickHeight) {
-                    ballSpeedY = -ballSpeedY;
+                let brickLeft = b.x;
+                let brickRight = b.x + brickWidth;
+                let brickTop = b.y;
+                let brickBottom = b.y + brickHeight;
+
+                if (
+                    ballX + ballRadius > brickLeft &&
+                    ballX - ballRadius < brickRight &&
+                    ballY + ballRadius > brickTop &&
+                    ballY - ballRadius < brickBottom
+                ) {
+                    if (ballX - ballRadius < brickLeft || ballX + ballRadius > brickRight) {
+                        ballSpeedX = -ballSpeedX;
+                    } else {
+                        ballSpeedY = -ballSpeedY;
+                    }
+
                     b.status = 0;
                     score++;
-                    brickSound.play(); // Play brick collision sound
+                    brickSound.play();
+
+                    adjustBallSpeed();
 
                     if (score === brickRowCount * brickColumnCount) {
-                        // Update high score
-                        if (score > highScore) {
-                            highScore = score;
-                            localStorage.setItem('highScore', highScore);
-                        }
+                        updateHighScore();
                         alert('YOU WIN! High Score: ' + highScore);
                         document.location.reload();
                     }
@@ -138,12 +179,20 @@ function collisionDetection() {
     }
 }
 
-// Game over
-function gameOver() {
-    gameOverSound.play(); // Play game over sound
-    alert('GAME OVER! Your Score: ' + score + ' | High Score: ' + highScore);
-    document.location.reload();
+function detectPaddleCollision() {
+    if (ballY + ballRadius >= canvas.height - paddleHeight && ballX >= paddleX && ballX <= paddleX + paddleWidth) {
+        // Reverse vertical direction
+        ballSpeedY = -ballSpeedY;
+
+        // Reverse horizontal direction if paddle is moving opposite to the ball
+        if ((paddleSpeed > 0 && ballSpeedX < 0) || (paddleSpeed < 0 && ballSpeedX > 0)) {
+            ballSpeedX = -ballSpeedX;
+        }
+
+        paddleSound.play(); // Play paddle collision sound
+    }
 }
+
 
 // Draw everything
 function draw() {
@@ -151,49 +200,45 @@ function draw() {
     drawBricks();
     drawBall();
     drawPaddle();
-    drawHighScore(); // Display high score
+    drawHighScore();
     ctx.font = '16px Arial';
     ctx.fillStyle = '#fff';
     ctx.fillText('Score: ' + score, 8, 20);
     ctx.fillText('Lives: ' + lives, canvas.width - 65, 20);
 
     collisionDetection();
+    detectPaddleCollision();
 
-    // Ball movement
     if (ballX + ballSpeedX > canvas.width - ballRadius || ballX + ballSpeedX < ballRadius) {
         ballSpeedX = -ballSpeedX;
     }
     if (ballY + ballSpeedY < ballRadius) {
         ballSpeedY = -ballSpeedY;
     } else if (ballY + ballSpeedY > canvas.height - ballRadius) {
-        if (ballX > paddleX && ballX < paddleX + paddleWidth) {
-            ballSpeedY = -ballSpeedY;
-            paddleSound.play(); // Play paddle collision sound
+        lives--;
+        if (!lives) {
+            gameOverSound.play();
+            updateHighScore();
+            alert('GAME OVER! Your Score: ' + score + ' | High Score: ' + highScore);
+            document.location.reload();
         } else {
-            lives--;
-            if (!lives) {
-                gameOver();
-            } else {
-                ballX = canvas.width / 2;
-                ballY = canvas.height - 30;
-                ballSpeedX = 2;
-                ballSpeedY = -2;
-                paddleX = (canvas.width - paddleWidth) / 2;
-            }
+            resetBall();
+            paddleX = (canvas.width - paddleWidth) / 2;
         }
     }
 
     ballX += ballSpeedX;
     ballY += ballSpeedY;
 
-    // Paddle movement
-    if (rightPressed && paddleX < canvas.width - paddleWidth) {
-        paddleX += 7;
-    } else if (leftPressed && paddleX > 0) {
-        paddleX -= 7;
-    }
-
     requestAnimationFrame(draw);
+}
+
+// Reset ball to starting position
+function resetBall() {
+    ballX = canvas.width / 2;
+    ballY = canvas.height - 30;
+    ballSpeedX = (Math.random() * 4 - 2);
+    ballSpeedY = -2;
 }
 
 draw();
